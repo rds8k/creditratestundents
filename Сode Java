@@ -1,0 +1,61 @@
+public void datasetTest() throws Exception {
+        InputStreamSource sourceCsv = new ClassPathResource("dataset.csv");
+
+        CSVReader csvFile = new CSVReader(new InputStreamReader(sourceCsv.getInputStream(), StandardCharsets.UTF_8));
+
+        AtomicBoolean isFirst = new AtomicBoolean(true);
+        String calculatedValues = csvFile.readAll()
+                .stream()
+                .filter(values -> values.length > 0)
+                .map(values -> values[0].split(";"))
+                .map(values -> {
+                    if (isFirst.getAndSet(false)) {
+                        return Stream.concat(
+                                Arrays.stream(values),
+                                Stream.of("Result")
+                        ).collect(Collectors.joining(","));
+                    }
+
+                    BooleanSupplier firstCondition = () -> "1".equals(safeString(values[1]));
+                    BooleanSupplier secondCondition = () -> toInteger(values[0]).filter(val -> val >= 5).isPresent();
+                    BooleanSupplier thirdCondition = () ->
+                            toInteger(values[0]).filter(val -> val >= 4).isPresent() &&
+                                    toInteger(values[4]).filter(val -> val == 2).isPresent();
+
+                    BooleanSupplier fourthCondition = () ->
+                            toInteger(values[0]).filter(val -> val < 3).isPresent() &&
+                                    toInteger(values[2]).orElse(0) - toInteger(values[3]).orElse(0) > 2;
+
+                    String result = firstCondition.getAsBoolean() 
+                            secondCondition.getAsBoolean() 
+                            thirdCondition.getAsBoolean() ||
+                            fourthCondition.getAsBoolean() ?
+                            "1" :
+                            "0";
+
+                    return Stream.concat(
+                            Arrays.stream(values),
+                            Stream.of(result)
+                    ).collect(Collectors.joining(","));
+                })
+                .collect(Collectors.joining("\n"));
+
+        Path path = Paths.get("D:\\D\\IT\\Code\\M\\iqimporter\\src\\test\\resources\\dataset_result.csv");
+        byte[] strToBytes = calculatedValues.getBytes(StandardCharsets.UTF_8);
+
+        Files.write(path, strToBytes);
+    }
+
+    private String safeString(Object object) {
+        return Optional.ofNullable(object)
+                .map(Object::toString)
+                .orElse("");
+    }
+
+    private Optional<Integer> toInteger(Object object) {
+        return Optional.ofNullable(object)
+                .map(Objects::toString)
+                .filter(StringUtils::isNotBlank)
+                .map(Double::parseDouble)
+                .map(Double::intValue);
+    }
